@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: todo_db_prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=todo_db
+      - POSTGRES_USER=todo_user
+      - POSTGRES_PASSWORD=secure_password_here
+    restart: always
+
+  web:
+    build: .
+    container_name: todo_web_prod
+    # NO VOLUMES - Code is frozen in image
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+      - SECRET_KEY=your-secret-key-here
+      - DATABASE_URL=postgresql://todo_user:secure_password_here@db:5432/todo_db
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn todo.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:

@@ -1,0 +1,31 @@
+{% extends 'base.html' %} {% block content %}
+<h1>Task List</h1>
+<a href="{% url 'task_create' %}">Create New Task</a>
+<table>
+  <thead>
+    <tr>
+      <th>Title</th>
+      <th>Description</th>
+      <th>Completed</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for task in tasks %}
+    <tr>
+      <td>{{ task.title }}</td>
+      <td>{{ task.description }}</td>
+      <td>{{ task.completed }}</td>
+      <td>
+        <a href="{% url 'task_update' task.id %}">Edit</a> |
+        <a href="{% url 'task_delete' task.id %}">Delete</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="4">No tasks available.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
