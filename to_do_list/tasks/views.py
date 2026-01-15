@@ -3,7 +3,7 @@ from tasks.models import Task
 
 # Create your views here.
 def task_list(req):
-    tasks = Task.objects.all()
+    tasks = Task.objects.all().order_by('-id')  # HOTRELOAD TEST: Added order by
     context = {
         'tasks': tasks,
     }

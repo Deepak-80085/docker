@@ -1,6 +1,28 @@
+version: '3.9'
+
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: todo_db_dev
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=todo_db
+      - POSTGRES_USER=todo_user
+      - POSTGRES_PASSWORD=dev_password
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo_user -d todo_db"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+    # No ports exposed - only web can access
+
   web:
     build: .
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - ./tasks:/app/tasks
       - ./templates:/app/templates
@@ -10,4 +32,9 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://todo_user:dev_password@db:5432/todo_db
     command: python manage.py runserver 0.0.0.0:8000
+    restart: unless-stopped
+
+volumes:
+  postgres_data_dev:
