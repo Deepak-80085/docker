@@ -1,0 +1,39 @@
+# Multi-stage build for production on Azure
+# Stage 1: Builder
+FROM python:3.12-slim as builder
+
+WORKDIR /app
+
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Runtime
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python packages from builder stage
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY . .
+
+# Make startup script executable and collect static files
+RUN chmod +x start.sh && python manage.py collectstatic --noinput || true
+
+# Expose port 8000
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/ || exit 1
+
+# Run migrations and start Gunicorn
+CMD ["./start.sh"]
