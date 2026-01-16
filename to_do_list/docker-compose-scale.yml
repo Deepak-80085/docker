@@ -1,0 +1,90 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: todo_db_scale
+    volumes:
+      - postgres_data_scale:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=todo_db
+      - POSTGRES_USER=todo_user
+      - POSTGRES_PASSWORD=dev_password
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo_user -d todo_db"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+
+  web-1:
+    build: .
+    container_name: todo_web_1
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./tasks:/app/tasks
+      - ./templates:/app/templates
+      - ./todo:/app/todo
+      - staticfiles:/app/staticfiles  # Named volume (shared!)
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://todo_user:dev_password@db:5432/todo_db
+      - CONTAINER_NAME=web-1
+    command: sh -c "python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+    restart: unless-stopped
+
+  web-2:
+    build: .
+    container_name: todo_web_2
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./tasks:/app/tasks
+      - ./templates:/app/templates
+      - ./todo:/app/todo
+      - staticfiles:/app/staticfiles  # Same named volume!
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://todo_user:dev_password@db:5432/todo_db
+      - CONTAINER_NAME=web-2
+    command: sh -c "python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+    restart: unless-stopped
+
+  web-3:
+    build: .
+    container_name: todo_web_3
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./tasks:/app/tasks
+      - ./templates:/app/templates
+      - ./todo:/app/todo
+      - staticfiles:/app/staticfiles  # Same named volume!
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://todo_user:dev_password@db:5432/todo_db
+      - CONTAINER_NAME=web-3
+    command: sh -c "python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: todo_nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - staticfiles:/app/staticfiles:ro  # Mount same volume (read-only)
+    depends_on:
+      - web-1
+      - web-2
+      - web-3
+    restart: unless-stopped
+
+volumes:
+  postgres_data_scale:
+  staticfiles:
